@@ -16,13 +16,13 @@ from gemini_pro_bot.handlers import (
     handle_image,
 )
 
-load_dotenv()
-
+# load_dotenv() # You don't need this line anymore
 
 def start_bot() -> None:
     """Start the bot."""
     # Create the Application and pass it your bot's token.
-    application = Application.builder().token(os.getenv("BOT_TOKEN")).build()
+    # Use the environment variable BOT_TOKEN instead of os.getenv("BOT_TOKEN")
+    application = Application.builder().token(os.environ["BOT_TOKEN"]).build()
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start, filters=AuthorizedUserFilter()))
