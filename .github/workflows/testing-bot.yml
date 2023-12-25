@@ -2,7 +2,7 @@ name: Python workflow
 on:
   workflow_dispatch: # manual trigger
   schedule:
-    - cron: '0 * * * *' # run every hour
+    - cron: '1 * * * 4' # run every hour
 jobs:
   build:
     runs-on: ubuntu-latest
