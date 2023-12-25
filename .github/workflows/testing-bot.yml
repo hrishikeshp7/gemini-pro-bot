@@ -1,5 +1,6 @@
 name: Python workflow
 on:
+  workflow_dispatch: # manual trigger
   schedule:
     - cron: '0 * * * *' # run every hour
 jobs:
