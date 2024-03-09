@@ -1,6 +1,6 @@
 <div align="center">
-
-  # GEMINI-PRO-BOT
+(Originally buily by @rabilrbl for gemini 1.0 , this repo is only for 1.5 version )
+  # GEMINI-1.5-PRO-BOT
   
   **A Python Telegram bot powered by Google's `gemini-pro` LLM API**
 
@@ -11,7 +11,7 @@
 </div>
 
 ### Features
-
+* Currently Updated to gemini 1.5 pro model (It is in private access so you will need to get access to it )
 * Generate creative text formats like poems, code, scripts, musical pieces, etc.
 * Stream the generation process, so you can see the text unfold in real-time.
 * Reply to your messages with Bard's creative output.
@@ -22,11 +22,17 @@
 * Send any image with captions to generate responses based on the image. (Multi-modal support)
 * User authentication to prevent unauthorized access by setting `AUTHORIZED_USERS` in the `.env` file (optional).
 
+### Remaining to do 
+
+* Add Video context functionality .
+* PDF and document suppport .
+
+
 ### Requirements
 
 * Python 3.10+
 * Telegram Bot API token
-* Google `gemini-pro` API key
+* Google `gemini-pro-1.5` API key
 * dotenv (for environment variables)
 
 
