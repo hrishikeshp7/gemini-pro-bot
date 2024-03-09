@@ -39,6 +39,7 @@ Chat commands:
 /new - Start a new chat session (model will forget previously generated messages)
 
 Send a message to the bot to generate a response.
+Gemini 1.5 Pro Wrapper by HPD47
 """
     await update.message.reply_text(help_text)
 
