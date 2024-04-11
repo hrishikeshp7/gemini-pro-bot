@@ -1,5 +1,5 @@
 <div align="center">
-  **If You want to use the older version please use either original repo or use older published pacakges. New ones are broken some due to dependabot and
+  **Please use the older version for deployment you can use either original repo or use older published pacakges. New ones are broken some due to dependabot dependancy errors and
   some due to my 1.5 API Struggle **
 (Originally buily by @rabilrbl for gemini 1.0 , this repo is only for 1.5 version )
   Also currently google does not support api version of 1.5 so this is just pre-build . 
