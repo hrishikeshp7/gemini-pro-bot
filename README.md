@@ -1,9 +1,6 @@
 <div align="center">
-  **Please use the older version for deployment you can use either original repo or use older published pacakges. New ones are broken some due to dependabot dependancy errors and
-  some due to my 1.5 API Struggle **
+  **GEmini 1.5 API is live and this is teh updated model. **
 (Originally buily by @rabilrbl for gemini 1.0 , this repo is only for 1.5 version )
-  Also currently google does not support api version of 1.5 so this is just pre-build . 
-  Google says api version will be launched soon . W'll Have to wait till then .
   # GEMINI-1.5-PRO-BOT
   
   **A Python Telegram bot powered by Google's `gemini-pro` LLM API**
