@@ -17,5 +17,5 @@ SAFETY_SETTINGS = {
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
-model = genai.GenerativeModel("gemini-1.5-flash-8b", safety_settings=SAFETY_SETTINGS)
-img_model = genai.GenerativeModel("gemini-1.5-flash-8b", safety_settings=SAFETY_SETTINGS)
+model = genai.GenerativeModel("gemini-2.0-flash", safety_settings=SAFETY_SETTINGS)
+img_model = genai.GenerativeModel("gemini-2.0-flash", safety_settings=SAFETY_SETTINGS)
