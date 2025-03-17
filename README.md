@@ -61,6 +61,76 @@ Once the image is built, you can run it with:
 docker run --env-file .env gemini-pro-bot
 ```
 
+#### CircleCI Pipeline
+To set up the CircleCI pipeline for building and pushing Docker images, follow these steps:
+
+1. Create a CircleCI account and link it to your GitHub repository.
+2. Add the following environment variables to your CircleCI project settings:
+    * `CR_PAT`: Your GitHub Container Registry Personal Access Token.
+    * `GITHUB_USERNAME`: Your GitHub username.
+3. Create a `.circleci/config.yml` file in your repository with the following content:
+    ```yaml
+    version: 2.1
+
+    executors:
+      docker-executor:
+        docker:
+          - image: circleci/python:3.12
+
+    jobs:
+      build:
+        executor: docker-executor
+        steps:
+          - checkout
+          - setup_remote_docker:
+              version: 20.10.7
+          - setup_qemu
+          - setup_buildx
+          - run:
+              name: Build Docker image
+              command: docker build -t gemini-pro-bot .
+          - run:
+              name: Save Docker image to workspace
+              command: docker save gemini-pro-bot | gzip > gemini-pro-bot.tar.gz
+          - persist_to_workspace:
+              root: .
+              paths:
+                - gemini-pro-bot.tar.gz
+
+      push:
+        executor: docker-executor
+        steps:
+          - attach_workspace:
+              at: /workspace
+          - run:
+              name: Load Docker image from workspace
+              command: gunzip -c /workspace/gemini-pro-bot.tar.gz | docker load
+          - run:
+              name: Login to GitHub Container Registry
+              command: |
+                echo $CR_PAT | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
+          - run:
+              name: Push Docker image to GitHub Container Registry
+              command: docker push ghcr.io/${GITHUB_USERNAME}/gemini-pro-bot:latest
+
+    workflows:
+      version: 2
+      build_and_push:
+        jobs:
+          - build
+          - push:
+              requires:
+                - build
+              filters:
+                branches:
+                  only:
+                    - main
+                pull_requests:
+                  branches:
+                    only:
+                      - main
+    ```
+
 ### Installation
 
 1. Clone this repository.
