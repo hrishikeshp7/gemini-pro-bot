@@ -36,10 +36,10 @@ jobs:
       - run:
           name: Login to GitHub Container Registry
           command: |
-            echo $CR_PAT | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
+            echo $CR_PAT | docker login ghcr.io -u $hrishikeshp7 --password-stdin
       - run:
           name: Push Docker image to GitHub Container Registry
-          command: docker push ghcr.io/${GITHUB_USERNAME}/gemini-pro-bot:latest
+          command: docker push ghcr.io/${hrishikeshp7}/gemini-pro-bot:latest
 
 workflows:
   version: 2
