@@ -46,7 +46,35 @@ def get_model(model_id: str = None):
     """Get a model instance with the specified model ID."""
     if model_id is None:
         model_id = DEFAULT_MODEL
-    return genai.GenerativeModel(model_id, safety_settings=SAFETY_SETTINGS)
+    try:
+        return genai.GenerativeModel(model_id, safety_settings=SAFETY_SETTINGS)
+    except Exception as e:
+        # If model id invalid/unavailable, raise a clearer error so caller can handle
+        raise RuntimeError(f"Failed to initialize model '{model_id}': {e}")
+
+
+def is_model_available(model_id: str) -> bool:
+    """Lightweight probe to check if a model appears available.
+
+    We attempt a minimal generation and catch StopIteration / transport errors.
+    Returns False if the model produces no output or raises availability errors.
+    """
+    try:
+        model = genai.GenerativeModel(model_id, safety_settings=SAFETY_SETTINGS)
+        # Minimal non-streaming call; using a very short prompt
+        resp = model.generate_content("ping", stream=False)
+        # Check for valid parts instead of using resp.text directly
+        if hasattr(resp, 'candidates') and resp.candidates:
+            candidate = resp.candidates[0]
+            if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                for part in candidate.content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        return True
+        return False
+    except StopIteration:
+        return False
+    except Exception:
+        return False
 
 
 def get_model_list_text():

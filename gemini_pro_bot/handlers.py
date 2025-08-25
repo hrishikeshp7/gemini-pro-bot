@@ -135,9 +135,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat = context.chat_data.get("chat")  # Get the chat session for this chat
     response = None
     try:
-        response = await chat.send_message_async(
-            text, stream=True
-        )  # Generate a response
+        # Use synchronous API in a thread; omit stream kw if unsupported
+        response = await asyncio.to_thread(chat.send_message, text)
+    except StopIteration:
+        await init_msg.edit_text(
+            "Selected model returned no output (possibly unavailable). Choose another model with /model."
+        )
+        return
     except StopCandidateException as sce:
         print("Prompt: ", text, " was stopped. User: ", update.message.from_user)
         print(sce)
@@ -153,47 +157,65 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await response.resolve()
         return
     full_plain_message = ""
-    # Stream the responses
-    async for chunk in response:
-        try:
-            if chunk.text:
-                full_plain_message += chunk.text
-                message = format_message(full_plain_message)
-                init_msg = await init_msg.edit_text(
-                    text=message,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True,
-                )
-        except StopCandidateException as sce:
-            await init_msg.edit_text("The model unexpectedly stopped generating.")
-            chat.rewind()  # Rewind the chat session to prevent the bot from getting stuck
-            continue
-        except BadRequest:
-            await response.resolve()  # Resolve the response to prevent the chat session from getting stuck
-            continue
-        except NetworkError:
-            raise NetworkError(
-                "Looks like you're network is down. Please try again later."
+    try:
+        # Non-streaming handling with robust safety / empty candidate diagnostics
+        if not response:
+            await init_msg.edit_text("No response object returned from model.")
+            return
+
+        candidate = None
+        if hasattr(response, "candidates") and response.candidates:
+            candidate = response.candidates[0]
+            if getattr(candidate, "content", None) and getattr(candidate.content, "parts", None):
+                for part in candidate.content.parts:
+                    txt = getattr(part, "text", None)
+                    if txt:
+                        full_plain_message += txt
+
+        # If still empty, attempt legacy text accessor carefully
+        if not full_plain_message:
+            fallback_text = getattr(response, "text", None)
+            if fallback_text:
+                full_plain_message = fallback_text
+
+        if full_plain_message:
+            message = format_message(full_plain_message)
+            await init_msg.edit_text(
+                text=message,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
             )
-        except IndexError:
-            await init_msg.reply_text(
-                "Some index error occurred. This response is not supported."
-            )
-            await response.resolve()
-            continue
-        except Exception as e:
-            print(e)
-            if chunk.text:
-                full_plain_message = chunk.text
-                message = format_message(full_plain_message)
-                init_msg = await update.message.reply_text(
-                    text=message,
-                    parse_mode=ParseMode.HTML,
-                    reply_to_message_id=init_msg.message_id,
-                    disable_web_page_preview=True,
-                )
-        # Sleep for a bit to prevent the bot from getting rate-limited
-        await asyncio.sleep(0.1)
+            return
+
+        # Diagnose why empty
+        reasons = []
+        if candidate:
+            # Safety ratings
+            safety_ratings = getattr(candidate, "safety_ratings", []) or []
+            blocked_categories = []
+            for r in safety_ratings:
+                prob = getattr(r, "probability", None)
+                cat = getattr(r, "category", None)
+                prob_name = getattr(prob, "name", None)
+                cat_name = getattr(cat, "name", None)
+                if prob_name in ("MEDIUM", "HIGH"):
+                    blocked_categories.append(cat_name or "UNKNOWN")
+            if blocked_categories:
+                reasons.append("Safety filter triggered: " + ", ".join(blocked_categories))
+            finish_reason = getattr(candidate, "finish_reason", None)
+            finish_name = getattr(finish_reason, "name", None)
+            if finish_name:
+                reasons.append(f"Finish reason: {finish_name}")
+        else:
+            reasons.append("No candidates returned (model may be unavailable or ID invalid)")
+
+        diagnostic = "; ".join(reasons) if reasons else "Unknown reason"
+        await init_msg.edit_text(
+            f"Model produced no text. {diagnostic}. Try another model (/model) or rephrase."
+        )
+    except Exception as e:
+        print("Post-processing error:", e)
+        await init_msg.edit_text("Error processing model response.")
 
 
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -222,42 +244,64 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         prompt = update.message.caption
     else:
         prompt = "Analyse this image and generate response"
-    response = await img_model.generate_content_async([prompt, a_img], stream=True)
+    try:
+        response = await asyncio.to_thread(img_model.generate_content, [prompt, a_img])
+    except StopIteration:
+        await init_msg.edit_text(
+            "Image request produced no output (model unavailable). Try another model with /model."
+        )
+        return
+    except Exception as e:
+        print("Image generation call failed:", e)
+        await init_msg.edit_text("Error calling image model.")
+        return
+
     full_plain_message = ""
-    async for chunk in response:
-        try:
-            if chunk.text:
-                full_plain_message += chunk.text
-                message = format_message(full_plain_message)
-                init_msg = await init_msg.edit_text(
-                    text=message,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True,
-                )
-        except StopCandidateException:
-            await init_msg.edit_text("The model unexpectedly stopped generating.")
-        except BadRequest:
-            await response.resolve()
-            continue
-        except NetworkError:
-            raise NetworkError(
-                "Looks like you're network is down. Please try again later."
+    try:
+        candidate = None
+        if hasattr(response, "candidates") and response.candidates:
+            candidate = response.candidates[0]
+            if getattr(candidate, "content", None) and getattr(candidate.content, "parts", None):
+                for part in candidate.content.parts:
+                    txt = getattr(part, "text", None)
+                    if txt:
+                        full_plain_message += txt
+        if not full_plain_message:
+            fallback_text = getattr(response, "text", None)
+            if fallback_text:
+                full_plain_message = fallback_text
+        if full_plain_message:
+            message = format_message(full_plain_message)
+            await init_msg.edit_text(
+                text=message,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
             )
-        except IndexError:
-            await init_msg.reply_text(
-                "Some index error occurred. This response is not supported."
-            )
-            await response.resolve()
-            continue
-        except Exception as e:
-            print(e)
-            if chunk.text:
-                full_plain_message = chunk.text
-                message = format_message(full_plain_message)
-                init_msg = await update.message.reply_text(
-                    text=message,
-                    parse_mode=ParseMode.HTML,
-                    reply_to_message_id=init_msg.message_id,
-                    disable_web_page_preview=True,
-                )
-        await asyncio.sleep(0.1)
+            return
+        # Diagnose
+        reasons = []
+        if candidate:
+            safety_ratings = getattr(candidate, "safety_ratings", []) or []
+            blocked_categories = []
+            for r in safety_ratings:
+                prob = getattr(r, "probability", None)
+                cat = getattr(r, "category", None)
+                prob_name = getattr(prob, "name", None)
+                cat_name = getattr(cat, "name", None)
+                if prob_name in ("MEDIUM", "HIGH"):
+                    blocked_categories.append(cat_name or "UNKNOWN")
+            if blocked_categories:
+                reasons.append("Safety filter triggered: " + ", ".join(blocked_categories))
+            finish_reason = getattr(candidate, "finish_reason", None)
+            finish_name = getattr(finish_reason, "name", None)
+            if finish_name:
+                reasons.append(f"Finish reason: {finish_name}")
+        else:
+            reasons.append("No candidates returned (model may be unavailable or ID invalid)")
+        diagnostic = "; ".join(reasons) if reasons else "Unknown reason"
+        await init_msg.edit_text(
+            f"Image model produced no text. {diagnostic}. Try another model or image."
+        )
+    except Exception as e:
+        print("Image post-processing error:", e)
+        await init_msg.edit_text("Error processing image response.")
