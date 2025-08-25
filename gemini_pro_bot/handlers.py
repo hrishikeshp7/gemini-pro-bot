@@ -172,11 +172,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     if txt:
                         full_plain_message += txt
 
-        # If still empty, attempt legacy text accessor carefully
+        # If still empty, do nothing and proceed to diagnostics
         if not full_plain_message:
-            fallback_text = getattr(response, "text", None)
-            if fallback_text:
-                full_plain_message = fallback_text
+            pass
 
         if full_plain_message:
             message = format_message(full_plain_message)
@@ -267,9 +265,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     if txt:
                         full_plain_message += txt
         if not full_plain_message:
-            fallback_text = getattr(response, "text", None)
-            if fallback_text:
-                full_plain_message = fallback_text
+            pass
         if full_plain_message:
             message = format_message(full_plain_message)
             await init_msg.edit_text(
